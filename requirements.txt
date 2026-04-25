@@ -1,0 +1,131 @@
+"""
+DataRevive
+
+A final project for Harvard's CS50P.
+This program automatically loads a messy CSV file, applies standard data cleaning,
+and saves a fresh, clean version of the file for the user.
+"""
+
+import sys
+import os
+import pandas as pd
+from loader import load_data
+from cleaner import clean_data
+
+
+def resolve_file_path(user_input: str) -> str:
+    """
+    Returns 'sample_data.csv' if the user leaves it blank or types 'demo'.
+    Otherwise, simply returns what the user typed.
+    """
+    # Strip whitespace first, then any surrounding double or single quotes
+    cleaned_input = user_input.strip().strip('"\'')
+    if not cleaned_input or cleaned_input.lower() in ("demo", "sample"):
+        return "sample_data.csv"
+    return cleaned_input
+
+
+def is_valid_csv_path(file_path: str) -> bool:
+    """
+    Checks if the file path ends with '.csv' and actually exists on the computer.
+    """
+    if not file_path or not file_path.strip():
+        return False
+    if not file_path.lower().endswith('.csv'):
+        return False
+    if not os.path.isfile(file_path):
+        return False
+    return True
+
+
+def create_output_filename(file_path: str) -> str:
+    """
+    Generates the output filename by adding a 'revived_' prefix.
+    Saves the file in the current working directory to prevent permission issues.
+    """
+    # We ignore the original directory to avoid PermissionError when saving
+    _, filename = os.path.split(file_path)
+    return f"revived_{filename}"
+
+
+def display_data_preview(df: pd.DataFrame, title: str):
+    """
+    Displays the first few rows of the dataframe with a custom title.
+    """
+    print(f"\n--- {title} ---")
+    print(df.head())
+    print("-" * 30)
+
+
+def generate_summary_report(input_file: str, output_file: str, raw_rows: int, clean_rows: int) -> str:
+    """
+    Creates a friendly text summary of the final results.
+    """
+    rows_dropped = raw_rows - clean_rows
+    report = (
+        "========================================\n"
+        "         DATA REVIVE COMPLETE           \n"
+        "========================================\n"
+        f"Input file  : {input_file}\n"
+        f"Output file : {output_file}\n"
+        f"Rows before : {raw_rows}\n"
+        f"Rows after  : {clean_rows}\n"
+        f"Rows dropped: {rows_dropped}\n"
+        "========================================\n"
+        "Thank you for using DataRevive!\n"
+    )
+    return report
+
+
+BANNER = r"""
+  ____        _          ____                 _
+ |  _ \  __ _| |_ __ _  |  _ \ _____   _____ (_)__   _____
+ | | | |/ _` | __/ _` | | |_) / _ \ \ / / \ \ / / \ \ / / _ \
+ | |_| | (_| | || (_| | |  _ <  __/ \ V /   \ V /| |\ V /  __/
+ |____/ \__,_|\__\__,_| |_| \_\___|  \_/     \_/ |_| \_/ \___|
+
+"""
+
+
+def main():
+    print(BANNER)
+    print("Welcome to DataRevive 🙂")
+    print("Please enter the path to your CSV file.")
+    print("(Or press ENTER to run the built-in 'sample_data.csv')")
+
+    raw_input = input("File path: ")
+    file_path = resolve_file_path(raw_input)
+
+    if not is_valid_csv_path(file_path):
+        sys.exit(f"\n[ERROR] The file '{file_path}' does not exist or is not a valid CSV.")
+
+    raw_data = load_data(file_path)
+    if raw_data is None:
+        sys.exit("\n[ERROR] Pipeline stopped because the data could not be loaded.")
+
+    raw_row_count = len(raw_data)
+    display_data_preview(raw_data, "DATA BEFORE CLEANING")
+
+    cleaned_data = clean_data(raw_data)
+    if cleaned_data is None:
+        sys.exit("\n[ERROR] Pipeline stopped during the cleaning phase.")
+
+    cleaned_row_count = len(cleaned_data)
+    display_data_preview(cleaned_data, "DATA AFTER CLEANING")
+
+    # Save the new version
+    output_path = create_output_filename(file_path)
+    try:
+        cleaned_data.to_csv(output_path, index=False)
+        print(f"\n[SUCCESS] Cleaned data has been successfully saved to '{output_path}'")
+    except Exception as e:
+        sys.exit(f"\n[ERROR] Failed to save the new CSV file: {e}")
+
+    # Print the final report
+    final_report = generate_summary_report(file_path, output_path, raw_row_count, cleaned_row_count)
+    print("\n" + final_report)
+
+
+if __name__ == "__main__":
+    main()
+
